@@ -178,18 +178,6 @@ def set_font(name):
 
 def main():
     '''The main function of our program'''
-    figure8_run()
-    # set the console just how we want it
-    reset_console()
-    set_cursor(OFF)
-    set_font('Lat15-Terminus24x12')
-
-    # print something to the screen of the device
-    print('Starting Lab 1...')
-
-    # print something to the output panel in VS Code
-    debug_print('Starting Lab 1...')
-
     """
     # TASK 2
     # Run error analysis from task2.py
@@ -207,6 +195,7 @@ def main():
     TASK 3
     """
     # rectangle()
+    # figure8_run()
 
     """
     TASK 4
@@ -214,15 +203,10 @@ def main():
     """
     # Uncomment the lines below to run dead reckoning:
 
-    if task4:
-        command_sequence = [
-        [80, 60, 2],   # Row 1: 80% left, 60% right for 2 seconds
-        [60, 60, 1],   # Row 2: 60% left, 60% right for 1 second
-        [-50, 80, 2]   # Row 3: -50% left, 80% right for 2 seconds
-    ]
-        task4.dead_reckoning_position_controller(command_sequence)
-    else:
-        debug_print("Task 4 dead reckoning not available - task4.py not found")
+    # if task4:
+    #     task4.main()
+    # else:
+    #     debug_print("Task 4 dead reckoning not available - task4.py not found")
 
     """
     TASK 5

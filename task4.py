@@ -36,7 +36,6 @@ def dead_reckoning_position_controller(command_sequence):
 
     # Command sequence: [left_power%, right_power%, duration_seconds]
 
-
     debug_print("Command sequence:")
     for i, cmd in enumerate(command_sequence):
         debug_print("  Row {}: Left={}%, Right={}%, Duration={}s".format(
@@ -143,6 +142,15 @@ def dead_reckoning_position_controller(command_sequence):
         final_left_pos = left_motor.position
         final_right_pos = right_motor.position
 
+        # Add final position for this row to trajectory log
+        trajectory_log.append({
+            'time': total_time,
+            'x': robot_x,
+            'y': robot_y,
+            'theta_deg': math.degrees(robot_theta),
+            'command': 'Row {} COMPLETE (L:{}%, R:{}%)'.format(row_num+1, left_power, right_power)
+        })
+
         debug_print("Segment complete. Encoders: L={:.1f}°, R={:.1f}°".format(
             final_left_pos, final_right_pos))
         debug_print("Current position: ({:.2f}, {:.2f}) mm, orientation: {:.2f}°".format(
@@ -157,13 +165,16 @@ def dead_reckoning_position_controller(command_sequence):
         math.degrees(robot_theta), robot_theta))
     debug_print("Total execution time: {:.1f} seconds".format(total_time))
 
-    # Display trajectory summary
+    # Display trajectory summary grouped by rows
     debug_print("\\n=== TRAJECTORY LOG ===")
     debug_print("Time(s) | X(mm)   | Y(mm)   | Angle(°) | Command")
     debug_print("-" * 55)
-    for point in trajectory_log[::5]:  # Show every 5th point to avoid clutter
-        debug_print("{:6.1f}  | {:7.2f} | {:7.2f} | {:8.2f} | {}".format(
-            point['time'], point['x'], point['y'], point['theta_deg'], point['command']))
+
+    # Show start position and completion of each row
+    for point in trajectory_log:
+        if (point['command'] == 'START' or 'COMPLETE' in point['command']):
+            debug_print("{:6.1f}  | {:7.2f} | {:7.2f} | {:8.2f} | {}".format(
+                point['time'], point['x'], point['y'], point['theta_deg'], point['command']))
 
     # Calculate total distance traveled
     total_distance = 0.0
@@ -206,16 +217,39 @@ def main():
     Main function for Task 4: Dead Reckoning Position Controller
     """
     debug_print("=== TASK 4: DEAD RECKONING POSITION CONTROLLER ===")
-    debug_print(
-        "This program will execute a sequence of motor commands and track robot position.\\n")
 
-    # Run the dead reckoning controller
-    result = dead_reckoning_position_controller()
+    # Define command sequence: [left_power%, right_power%, duration_seconds]
+    command_sequence = [
+        [80, 60, 0.5],   # Row 1
+        [60, 60, 1.0],   # Row 2
+        [-50, 80, 1.0]   # Row 3
+    ]
+
+    all_results = []
+
+    # Run 3 trials, each executing all 3 rows in sequence
+    for trial in range(1, 4):
+        debug_print("\\n" + "="*50)
+        debug_print("TRIAL {}".format(trial))
+        debug_print("="*50)
+        result = dead_reckoning_position_controller(command_sequence)
+        all_results.append(result)
+        debug_print("Trial {}: X={:.1f}, Y={:.1f}, Theta={:.1f}°".format(
+            trial, result['final_x'], result['final_y'], result['final_theta_deg']))
+
+        if trial < 3:
+            debug_print("Reposition robot to (0,0) for next trial...")
+            time.sleep(3)
 
     debug_print("\\n=== TASK 4 COMPLETE ===")
-    debug_print("Final position logged and displayed.")
 
-    return result
+    # Summary of all results
+    debug_print("\\n=== FINAL SUMMARY ===")
+    for trial, result in enumerate(all_results):
+        debug_print("Trial {}: X={:.1f}, Y={:.1f}, Theta={:.1f}°".format(
+            trial + 1, result['final_x'], result['final_y'], result['final_theta_deg']))
+
+    return all_results
 
 
 if __name__ == '__main__':
