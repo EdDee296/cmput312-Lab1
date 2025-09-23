@@ -205,7 +205,7 @@ def method1_rotation_encoder_based_error():
     # Calculate expected rotation parameters
     target_rotation_degrees = 360  # One full robot rotation
     wheel_diameter_mm = 43  # EV3 Large tire diameter
-    wheelbase_mm = 156  # Distance between wheels
+    wheelbase_mm = 156  # Distance between wheels (measure this accurately!)
 
     # For robot to rotate 360°, each wheel travels arc distance = π * wheelbase
     arc_length_mm = (target_rotation_degrees / 360) * math.pi * wheelbase_mm
@@ -214,79 +214,65 @@ def method1_rotation_encoder_based_error():
     wheel_circumference_mm = math.pi * wheel_diameter_mm
     expected_wheel_degrees = (arc_length_mm / wheel_circumference_mm) * 360
 
-    debug_print("Target robot rotation: {} degrees".format(
-        target_rotation_degrees))
+    debug_print("Target robot rotation: {} degrees".format(target_rotation_degrees))
     debug_print("Wheelbase: {} mm".format(wheelbase_mm))
-    debug_print("Wheel diameter: {} mm".format(wheel_diameter_mm))
-    debug_print("Arc length per wheel: {:.2f} mm".format(arc_length_mm))
-    debug_print("Wheel circumference: {:.2f} mm".format(
-        wheel_circumference_mm))
-    debug_print("Expected wheel rotation: {:.2f} degrees each".format(
-        expected_wheel_degrees))
+    debug_print("Expected wheel rotation: {:.2f} degrees each".format(expected_wheel_degrees))
 
-    # FIXED: Use consistent motor control for both wheels
-    left_motor.on(SpeedPercent(30), block=False)   # Left wheel forward
-    right_motor.on(SpeedPercent(-30), block=False)  # Right wheel backward
+    # Use on_for_degrees for precise control
+    speed = SpeedPercent(30)
+
+    # Start both motors simultaneously for tank turn
+    # Left wheel backward, right wheel forward for clockwise rotation
+    left_motor.on_for_degrees(speed * -1, expected_wheel_degrees, block=False)
+    right_motor.on_for_degrees(speed, expected_wheel_degrees, block=False)
 
     # Track error over time
     rotation_errors = []
     start_time = time.time()
-    run_time = 12.1  # Calculated time for full 360-degree turn at SpeedPercent 30
 
-    while time.time() - start_time < run_time:
+    # Monitor until both motors complete
+    while left_motor.is_running or right_motor.is_running:
         elapsed_time = time.time() - start_time
         left_pos = abs(left_motor.position)
         right_pos = abs(right_motor.position)
 
-        # Average wheel rotation
+        # Average wheel rotation (both should be moving same amount)
         avg_wheel_rotation = (left_pos + right_pos) / 2
 
-        # Calculate expected rotation at this time (linear progression)
-        expected_rotation_now = expected_wheel_degrees * \
-            (elapsed_time / run_time)
+        # Calculate expected rotation at this time
+        progress = min(elapsed_time / 8.0, 1.0)  # Estimate 8 seconds for completion
+        expected_rotation_now = expected_wheel_degrees * progress
         rotation_error = abs(avg_wheel_rotation - expected_rotation_now)
         rotation_errors.append(rotation_error)
 
         debug_print("Time: {:.1f}s, Left: {:.1f}°, Right: {:.1f}°, Avg: {:.1f}°, Expected: {:.1f}°, Error: {:.2f}°".format(
             elapsed_time, left_pos, right_pos, avg_wheel_rotation, expected_rotation_now, rotation_error))
 
-        # Stop if we've achieved expected rotation
-        if avg_wheel_rotation >= expected_wheel_degrees:
-            debug_print("Target wheel rotation achieved!")
-            break
-
         time.sleep(0.2)
 
-    # Stop motors
-    left_motor.stop()
-    right_motor.stop()
-
-    # Calculate final statistics
+    # Final measurements
     final_left = abs(left_motor.position)
     final_right = abs(right_motor.position)
     final_avg = (final_left + final_right) / 2
-    final_error = abs(final_avg - expected_wheel_degrees)
 
     # Calculate actual robot rotation from wheel movement
     actual_arc_length = (final_avg / 360) * wheel_circumference_mm
-    actual_robot_rotation = (
-        actual_arc_length / (math.pi * wheelbase_mm)) * 360
+    actual_robot_rotation = (actual_arc_length / (math.pi * wheelbase_mm)) * 360
 
-    avg_error = sum(rotation_errors) / \
-        len(rotation_errors) if rotation_errors else 0
+    final_error = abs(final_avg - expected_wheel_degrees)
+    robot_rotation_error = abs(actual_robot_rotation - target_rotation_degrees)
+
+    avg_error = sum(rotation_errors) / len(rotation_errors) if rotation_errors else 0
     max_error = max(rotation_errors) if rotation_errors else 0
 
     debug_print("Method 1 Rotation Results:")
-    debug_print("Expected wheel rotation: {:.2f}°".format(
-        expected_wheel_degrees))
+    debug_print("Expected wheel rotation: {:.2f}°".format(expected_wheel_degrees))
     debug_print("Actual average wheel rotation: {:.2f}°".format(final_avg))
-    debug_print("Expected robot rotation: {:.2f}°".format(
-        target_rotation_degrees))
+    debug_print("Expected robot rotation: {:.2f}°".format(target_rotation_degrees))
     debug_print("Actual robot rotation: {:.2f}°".format(actual_robot_rotation))
-    debug_print("Robot rotation error: {:.2f}°".format(
-        abs(actual_robot_rotation - target_rotation_degrees)))
-    debug_print("Average error: {:.2f}°".format(avg_error))
-    debug_print("Maximum error: {:.2f}°".format(max_error))
+    debug_print("Robot rotation error: {:.2f}°".format(robot_rotation_error))
+    debug_print("Average tracking error: {:.2f}°".format(avg_error))
+    debug_print("Maximum tracking error: {:.2f}°".format(max_error))
 
     return {
         'method': 'Encoder-based Rotation',
@@ -294,7 +280,7 @@ def method1_rotation_encoder_based_error():
         'actual_wheel_rotation': final_avg,
         'expected_robot_rotation': target_rotation_degrees,
         'actual_robot_rotation': actual_robot_rotation,
-        'final_error': abs(actual_robot_rotation - target_rotation_degrees),
+        'final_error': robot_rotation_error,  # Use robot rotation error, not wheel error
         'avg_error': avg_error,
         'max_error': max_error,
         'error_history': rotation_errors
@@ -309,71 +295,75 @@ def method2_rotation_gyro_based_error():
     debug_print("=== Method 2: Gyro Sensor-Based Rotation Error Measurement ===")
 
     try:
-        # Initialize gyro sensor
+        # Initialize gyro sensor and reset
         gyro = GyroSensor(INPUT_3)
         gyro.mode = 'GYRO-ANG'
 
+        # Reset gyro angle to 0
+        gyro.reset()
+        time.sleep(0.5)  # Allow gyro to stabilize
+
         # Initialize motors
-        from ev3dev2.motor import MoveTank
-        tank_drive = MoveTank(OUTPUT_B, OUTPUT_C)
+        left_motor = LargeMotor(OUTPUT_B)
+        right_motor = LargeMotor(OUTPUT_C)
 
         # Set target rotation
         target_rotation = 360  # degrees
         initial_angle = gyro.angle
-        target_final_angle = initial_angle + target_rotation
 
         debug_print("Target rotation: {}°".format(target_rotation))
         debug_print("Initial angle: {}°".format(initial_angle))
-        debug_print("Target final angle: {}°".format(target_final_angle))
 
-        # Start rotation - FIXED: Use proper tank turn
-        # Left forward, right backward
-        tank_drive.on(SpeedPercent(30), SpeedPercent(-30))
+        # Calculate approximate rotation time (same as encoder method)
+        wheel_diameter_mm = 43
+        wheelbase_mm = 156
+        arc_length_mm = math.pi * wheelbase_mm
+        wheel_circumference_mm = math.pi * wheel_diameter_mm
+        expected_wheel_degrees = (arc_length_mm / wheel_circumference_mm) * 360
+
+        # Start rotation with same parameters as encoder method
+        speed = SpeedPercent(30)
+        left_motor.on_for_degrees(speed * -1, expected_wheel_degrees, block=False)
+        right_motor.on_for_degrees(speed, expected_wheel_degrees, block=False)
 
         # Track angular error over time
         angular_errors = []
         start_time = time.time()
-        run_time = 12.1  # Calculated time for full 360-degree turn at SpeedPercent 30
 
-        while time.time() - start_time < run_time:
+        while left_motor.is_running or right_motor.is_running:
             current_angle = gyro.angle
             elapsed_time = time.time() - start_time
 
-            # Expected angle at this time (linear progression)
-            expected_angle = initial_angle + \
-                (target_rotation * elapsed_time / run_time)
-            angular_error = abs(current_angle - expected_angle)
+            # Calculate how much we should have rotated by now
+            progress = min(elapsed_time / 8.0, 1.0)  # Estimate 8 seconds for completion
+            expected_angle = initial_angle + (target_rotation * progress)
+
+            # Current rotation from start
+            current_rotation = abs(current_angle - initial_angle)
+            expected_rotation_now = target_rotation * progress
+
+            angular_error = abs(current_rotation - expected_rotation_now)
             angular_errors.append(angular_error)
 
-            debug_print("Time: {:.1f}s, Current: {:.1f}°, Expected: {:.1f}°, Error: {:.2f}°".format(
-                elapsed_time, current_angle, expected_angle, angular_error))
-
-            # Check if we've completed the rotation
-            actual_rotation_so_far = abs(current_angle - initial_angle)
-            if actual_rotation_so_far >= target_rotation:
-                debug_print("Target rotation achieved early!")
-                break
+            debug_print("Time: {:.1f}s, Current: {:.1f}°, Rotated: {:.1f}°, Expected: {:.1f}°, Error: {:.2f}°".format(
+                elapsed_time, current_angle, current_rotation, expected_rotation_now, angular_error))
 
             time.sleep(0.2)
 
-        # Stop motors
-        tank_drive.stop()
-
         # Final measurements
         final_angle = gyro.angle
-        # Use absolute value
         actual_rotation = abs(final_angle - initial_angle)
         final_error = abs(actual_rotation - target_rotation)
 
-        avg_error = sum(angular_errors) / len(angular_errors)
-        max_error = max(angular_errors)
+        avg_error = sum(angular_errors) / len(angular_errors) if angular_errors else 0
+        max_error = max(angular_errors) if angular_errors else 0
 
         debug_print("Method 2 Rotation Results:")
         debug_print("Target rotation: {}°".format(target_rotation))
         debug_print("Actual rotation: {:.2f}°".format(actual_rotation))
         debug_print("Final error: {:.2f}°".format(final_error))
-        debug_print("Average error: {:.2f}°".format(avg_error))
-        debug_print("Maximum error: {:.2f}°".format(max_error))
+        debug_print("Average tracking error: {:.2f}°".format(avg_error))
+        debug_print("Maximum tracking error: {:.2f}°".format(max_error))
 
         return {
             'method': 'Gyro-based Rotation',
