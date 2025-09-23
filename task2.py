@@ -47,7 +47,7 @@ def method1_encoder_based_error():
         position_error = abs(left_pos - right_pos)
         errors.append(position_error)
 
-        debug_print("Left: {:.1f}°, Right: {:.1f}°, Error: {:.2f}°".format(
+        debug_print("Right: {:.1f}°, Left: {:.1f}°, Error: {:.2f}°".format(
             left_pos, right_pos, position_error))
         time.sleep(0.2)
 
@@ -231,7 +231,7 @@ def method1_rotation_encoder_based_error():
     # Track error over time
     rotation_errors = []
     start_time = time.time()
-    run_time = 6  # Increased time to allow full rotation
+    run_time = 12.1  # Calculated time for full 360-degree turn at SpeedPercent 30
 
     while time.time() - start_time < run_time:
         elapsed_time = time.time() - start_time
@@ -333,7 +333,7 @@ def method2_rotation_gyro_based_error():
         # Track angular error over time
         angular_errors = []
         start_time = time.time()
-        run_time = 6  # Increased time to allow full rotation
+        run_time = 12.1  # Calculated time for full 360-degree turn at SpeedPercent 30
 
         while time.time() - start_time < run_time:
             current_angle = gyro.angle
@@ -470,7 +470,7 @@ def main():
 
     # Run straight line error analysis
     debug_print("1. STRAIGHT LINE ERROR ANALYSIS")
-    straight_line_error_analysis()
+    #straight_line_error_analysis()
 
     time.sleep(3)  # Pause between analyses
 
