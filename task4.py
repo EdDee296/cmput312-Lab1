@@ -220,15 +220,15 @@ def main():
 
     # Define command sequence: [left_power%, right_power%, duration_seconds]
     command_sequence = [
-        [80, 60, 0.5],   # Row 1
-        [60, 60, 1.0],   # Row 2
-        [-50, 80, 1.0]   # Row 3
+        [30, 40, 2.0],   # Row 1
+        [-80, -60, 2.0],   # Row 2
+        [20, 10, 2.0]   # Row 3
     ]
 
     all_results = []
 
     # Run 3 trials, each executing all 3 rows in sequence
-    for trial in range(1, 4):
+    for trial in range(1, 2):
         debug_print("\\n" + "="*50)
         debug_print("TRIAL {}".format(trial))
         debug_print("="*50)
@@ -239,7 +239,6 @@ def main():
 
         if trial < 3:
             debug_print("Reposition robot to (0,0) for next trial...")
-            time.sleep(3)
 
     debug_print("\\n=== TASK 4 COMPLETE ===")
 

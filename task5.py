@@ -396,4 +396,4 @@ def main(behavior='aggression', duration=30):
 
 
 if __name__ == '__main__':
-    main('love', 15)
+    main('cowardice', 30)
